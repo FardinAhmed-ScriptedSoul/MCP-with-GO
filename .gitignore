@@ -28,6 +28,22 @@ go.work.sum
 # env file
 .env
 
+# Local data and sensitive captures/documents
+data/*
+!data/documents/
+!data/network/
+data/documents/*
+!data/documents/.gitkeep
+data/network/*
+!data/network/.gitkeep
+!data/network/flows.example.csv
+
+# Local binaries and editor files
+/mcp-server
+/mcp-server.exe
+.vscode/
+.idea/
+
 # Editor/IDE
 # .idea/
 # .vscode/
