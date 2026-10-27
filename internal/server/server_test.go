@@ -21,6 +21,10 @@ func TestServerDiscoversAndInvokesTools(t *testing.T) {
 	if err := os.WriteFile(document, []byte("# welcome"), 0600); err != nil {
 		t.Fatal(err)
 	}
+	csvDocument := filepath.Join(root, "records.csv")
+	if err := os.WriteFile(csvDocument, []byte("name,value\nAda,1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	flowPath := filepath.Join(root, "flows.csv")
 	flowData := "source_ip,destination_ip,protocol,bytes,packets\n192.0.2.1,198.51.100.1,TCP,42,3\n"
 	if err := os.WriteFile(flowPath, []byte(flowData), 0600); err != nil {
@@ -53,10 +57,20 @@ func TestServerDiscoversAndInvokesTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(tools.Tools) != 9 {
-		t.Fatalf("ListTools() returned %d tools, want 9", len(tools.Tools))
+	if len(tools.Tools) != 10 {
+		t.Fatalf("ListTools() returned %d tools, want 10", len(tools.Tools))
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "read_csv",
+		Arguments: map[string]string{"path": csvDocument},
+	})
+	if err != nil {
+		t.Fatalf("call read_csv: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("read_csv returned tool error: %v", result.Content[0].(*mcp.TextContent).Text)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "get_traffic_summary",
 		Arguments: json.RawMessage(`{}`),
 	})

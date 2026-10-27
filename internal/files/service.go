@@ -1,7 +1,9 @@
 package files
 
 import (
+	"encoding/csv"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -16,6 +18,14 @@ type Metadata struct {
 	Format  string `json:"format"`
 	ModTime string `json:"modified_at"`
 }
+
+type CSVData struct {
+	Headers   []string   `json:"headers"`
+	Rows      [][]string `json:"rows"`
+	Truncated bool       `json:"truncated"`
+}
+
+const MaxCSVRows = 500
 
 type Service struct {
 	roots        []string
@@ -85,7 +95,7 @@ func (s *Service) ReadFile(path string) (string, error) {
 		return "", err
 	}
 	if !supported(resolved) {
-		return "", fmt.Errorf("unsupported file format %q; supported formats are .txt and .md", filepath.Ext(resolved))
+		return "", fmt.Errorf("unsupported file format %q; supported formats are .txt, .md, and .csv", filepath.Ext(resolved))
 	}
 	if info.Size() > s.maxFileBytes {
 		return "", fmt.Errorf("file exceeds configured size limit of %d bytes", s.maxFileBytes)
@@ -100,13 +110,65 @@ func (s *Service) ReadFile(path string) (string, error) {
 	return string(data), nil
 }
 
+func (s *Service) ReadCSV(path string, rowLimit int) (CSVData, error) {
+	if rowLimit < 1 || rowLimit > MaxCSVRows {
+		return CSVData{}, fmt.Errorf("row limit must be between 1 and %d", MaxCSVRows)
+	}
+	if !strings.EqualFold(filepath.Ext(path), ".csv") {
+		return CSVData{}, fmt.Errorf("CSV path must have a .csv extension")
+	}
+	content, err := s.ReadFile(path)
+	if err != nil {
+		return CSVData{}, err
+	}
+	reader := csv.NewReader(strings.NewReader(content))
+	reader.FieldsPerRecord = -1
+	headers, err := reader.Read()
+	if err != nil {
+		return CSVData{}, fmt.Errorf("read CSV header: %w", err)
+	}
+	if len(headers) == 0 {
+		return CSVData{}, fmt.Errorf("CSV must contain at least one column")
+	}
+	for i, header := range headers {
+		headers[i] = strings.TrimSpace(header)
+		if headers[i] == "" {
+			return CSVData{}, fmt.Errorf("CSV column %d has an empty header", i+1)
+		}
+	}
+
+	data := CSVData{Headers: headers, Rows: make([][]string, 0)}
+	for len(data.Rows) < rowLimit {
+		row, err := reader.Read()
+		if err != nil {
+			if err == io.EOF {
+				return data, nil
+			}
+			return CSVData{}, fmt.Errorf("read CSV row %d: %w", len(data.Rows)+2, err)
+		}
+		if len(row) != len(headers) {
+			return CSVData{}, fmt.Errorf("CSV row %d has %d fields; expected %d", len(data.Rows)+2, len(row), len(headers))
+		}
+		data.Rows = append(data.Rows, row)
+	}
+	_, err = reader.Read()
+	if err == io.EOF {
+		return data, nil
+	}
+	if err != nil {
+		return CSVData{}, fmt.Errorf("read CSV row %d: %w", len(data.Rows)+2, err)
+	}
+	data.Truncated = true
+	return data, nil
+}
+
 func (s *Service) GetMetadata(path string) (Metadata, error) {
 	resolved, _, err := s.resolve(path)
 	if err != nil {
 		return Metadata{}, err
 	}
 	if !supported(resolved) {
-		return Metadata{}, fmt.Errorf("unsupported file format %q; supported formats are .txt and .md", filepath.Ext(resolved))
+		return Metadata{}, fmt.Errorf("unsupported file format %q; supported formats are .txt, .md, and .csv", filepath.Ext(resolved))
 	}
 	return s.metadata(resolved)
 }
@@ -166,7 +228,7 @@ func (s *Service) resolve(path string) (string, os.FileInfo, error) {
 
 func supported(path string) bool {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".txt", ".md":
+	case ".txt", ".md", ".csv":
 		return true
 	default:
 		return false

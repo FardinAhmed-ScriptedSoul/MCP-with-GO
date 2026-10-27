@@ -28,6 +28,15 @@ type metadataOutput struct {
 	Metadata files.Metadata `json:"metadata"`
 }
 
+type csvInput struct {
+	Path     string `json:"path" jsonschema:"File path returned by list_allowed_files"`
+	RowLimit int    `json:"row_limit,omitempty" jsonschema:"Maximum CSV data rows (1-500; default 100)"`
+}
+
+type csvOutput struct {
+	Data files.CSVData `json:"data"`
+}
+
 type tableInput struct {
 	Table string `json:"table" jsonschema:"Table name in the configured database schema"`
 }
@@ -71,6 +80,14 @@ func registerFileTools(s *mcp.Server, service *files.Service) {
 		func(_ context.Context, _ *mcp.CallToolRequest, input pathInput) (*mcp.CallToolResult, metadataOutput, error) {
 			meta, err := service.GetMetadata(input.Path)
 			return nil, metadataOutput{Metadata: meta}, err
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "read_csv", Description: "Parse a bounded CSV file within configured directories and return its header and rows."},
+		func(_ context.Context, _ *mcp.CallToolRequest, input csvInput) (*mcp.CallToolResult, csvOutput, error) {
+			if input.RowLimit == 0 {
+				input.RowLimit = 100
+			}
+			data, err := service.ReadCSV(input.Path, input.RowLimit)
+			return nil, csvOutput{Data: data}, err
 		})
 }
 

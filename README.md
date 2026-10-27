@@ -1,6 +1,6 @@
 # Go MCP Intelligence Server
 
-A Go MCP server using the official [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk) SDK. It exposes bounded file reading, optional read-only PostgreSQL inspection, and analysis of operator-supplied network flow CSV data over stdio.
+A Go MCP server using the official [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk) SDK. It exposes bounded TXT/Markdown/CSV file reading, optional read-only PostgreSQL inspection, and analysis of operator-supplied network flow CSV data over stdio.
 
 ## Requirements
 
@@ -34,9 +34,10 @@ Configure an MCP-compatible application to launch the executable as a stdio serv
 
 | Tool | Purpose |
 |---|---|
-| `list_allowed_files` | List TXT and Markdown files below configured roots. |
-| `read_file` | Read a UTF-8 TXT/Markdown file within a configured root. |
+| `list_allowed_files` | List TXT, Markdown, and CSV files below configured roots. |
+| `read_file` | Read a UTF-8 TXT, Markdown, or CSV file within a configured root. |
 | `get_file_metadata` | Return path, byte size, supported format, and modification time. |
+| `read_csv` | Parse CSV headers and rows, with a configurable row limit (up to 500). |
 | `list_tables` | List base tables in the configured PostgreSQL schema. |
 | `describe_table` | Inspect columns in the configured schema. |
 | `query_readonly` | Execute one bounded SELECT/WITH query in a read-only transaction. |
@@ -44,7 +45,7 @@ Configure an MCP-compatible application to launch the executable as a stdio serv
 | `get_top_talkers` | Rank source/destination IP addresses by bytes. |
 | `get_protocol_statistics` | Aggregate flows, bytes, and packets by protocol. |
 
-File extractors currently support only TXT and Markdown. PDF, DOCX, content search, and PCAP parsing are not implemented and are not represented as supported features.
+File extractors support TXT, Markdown, and CSV. CSV is parsed into headers and rows by `read_csv`; the `read_file` tool returns its raw UTF-8 text. PDF, DOCX, content search, and PCAP parsing are not implemented and are not represented as supported features.
 
 ## Configuration
 
