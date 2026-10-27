@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/FardinAhmed-ScriptedSoul/MCP-with-GO/internal/config"
+	"github.com/FardinAhmed-ScriptedSoul/MCP-with-GO/internal/contextpack"
 	"github.com/FardinAhmed-ScriptedSoul/MCP-with-GO/internal/database"
 	"github.com/FardinAhmed-ScriptedSoul/MCP-with-GO/internal/files"
 	"github.com/FardinAhmed-ScriptedSoul/MCP-with-GO/internal/network"
@@ -50,7 +51,11 @@ func run(logger *slog.Logger) error {
 	}
 
 	networkService := network.NewService(cfg.FlowCSVPath, cfg.FlowMaxFileBytes)
-	mcpServer := server.New(fileService, dbService, networkService, logger)
+	contextPackService, err := contextpack.NewService(fileService, dbService, cfg.ContextPackDefaultTokens, cfg.ContextPackMaxScanBytes)
+	if err != nil {
+		return err
+	}
+	mcpServer := server.New(fileService, dbService, networkService, contextPackService, logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

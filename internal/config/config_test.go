@@ -26,6 +26,8 @@ func TestLoadDotEnvAndRespectProcessEnvironment(t *testing.T) {
 	})
 
 	setOrUnset(t, "MCP_MAX_FILE_BYTES", "")
+	setOrUnset(t, "CONTEXT_PACK_DEFAULT_TOKENS", "")
+	setOrUnset(t, "CONTEXT_PACK_MAX_SCAN_BYTES", "")
 	t.Setenv("MCP_ALLOWED_DIRS", root)
 	t.Setenv("DATABASE_SCHEMA", "from-process")
 	t.Setenv("DATABASE_URL", "")
@@ -40,6 +42,9 @@ func TestLoadDotEnvAndRespectProcessEnvironment(t *testing.T) {
 	}
 	if cfg.DatabaseSchema != "from-process" {
 		t.Errorf("DatabaseSchema = %q, want process environment value", cfg.DatabaseSchema)
+	}
+	if cfg.ContextPackDefaultTokens != 2000 {
+		t.Errorf("ContextPackDefaultTokens = %d, want default 2000", cfg.ContextPackDefaultTokens)
 	}
 }
 

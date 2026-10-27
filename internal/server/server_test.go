@@ -11,6 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/FardinAhmed-ScriptedSoul/MCP-with-GO/internal/contextpack"
 	"github.com/FardinAhmed-ScriptedSoul/MCP-with-GO/internal/files"
 	"github.com/FardinAhmed-ScriptedSoul/MCP-with-GO/internal/network"
 )
@@ -35,7 +36,11 @@ func TestServerDiscoversAndInvokesTools(t *testing.T) {
 		t.Fatal(err)
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	mcpServer := New(fileService, nil, network.NewService(flowPath, 1024), logger)
+	contextPackService, err := contextpack.NewService(fileService, nil, 1000, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpServer := New(fileService, nil, network.NewService(flowPath, 1024), contextPackService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
@@ -57,8 +62,8 @@ func TestServerDiscoversAndInvokesTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(tools.Tools) != 10 {
-		t.Fatalf("ListTools() returned %d tools, want 10", len(tools.Tools))
+	if len(tools.Tools) != 11 {
+		t.Fatalf("ListTools() returned %d tools, want 11", len(tools.Tools))
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "read_csv",
@@ -69,6 +74,16 @@ func TestServerDiscoversAndInvokesTools(t *testing.T) {
 	}
 	if result.IsError {
 		t.Fatalf("read_csv returned tool error: %v", result.Content[0].(*mcp.TextContent).Text)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "build_context_pack",
+		Arguments: map[string]any{"query": "welcome", "token_budget": 300},
+	})
+	if err != nil {
+		t.Fatalf("call build_context_pack: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("build_context_pack returned tool error: %v", result.Content[0].(*mcp.TextContent).Text)
 	}
 	result, err = session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "get_traffic_summary",

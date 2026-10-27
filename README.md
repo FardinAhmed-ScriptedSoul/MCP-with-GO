@@ -44,8 +44,11 @@ Configure an MCP-compatible application to launch the executable as a stdio serv
 | `get_traffic_summary` | Summarize authorized flow CSV data. |
 | `get_top_talkers` | Rank source/destination IP addresses by bytes. |
 | `get_protocol_statistics` | Aggregate flows, bytes, and packets by protocol. |
+| `build_context_pack` | Find keyword-relevant file excerpts and optional database schema metadata, with source citations and a bounded approximate token budget. |
 
-File extractors support TXT, Markdown, and CSV. CSV is parsed into headers and rows by `read_csv`; the `read_file` tool returns its raw UTF-8 text. PDF, DOCX, content search, and PCAP parsing are not implemented and are not represented as supported features.
+File extractors support TXT, Markdown, and CSV. CSV is parsed into headers and rows by `read_csv`; the `read_file` tool returns its raw UTF-8 text. PDF, DOCX, a standalone `search_file_content` tool, and PCAP parsing are not implemented and are not represented as supported features.
+
+`build_context_pack` ranks matching lines, CSV rows, and database table schemas using local keyword matching (no external embedding service). Each item cites its file line, CSV row, or database table. Its token estimate is approximate, and returned document/database text must be treated as untrusted evidence. File scanning and result sizes are bounded.
 
 ## Configuration
 
@@ -61,6 +64,8 @@ File extractors support TXT, Markdown, and CSV. CSV is parsed into headers and r
 | `DATABASE_MAX_RESULT_BYTES` | `1048576` | Maximum returned text data per query. |
 | `FLOW_CSV_PATH` | unset | Path to a flow CSV authorized for analysis. |
 | `FLOW_MAX_FILE_BYTES` | `10485760` | Maximum size of the flow CSV. |
+| `CONTEXT_PACK_DEFAULT_TOKENS` | `2000` | Default approximate context-pack budget, between 100 and 8000 tokens. |
+| `CONTEXT_PACK_MAX_SCAN_BYTES` | `10485760` | Maximum combined file bytes scanned for each context pack. |
 
 ## Documentation
 

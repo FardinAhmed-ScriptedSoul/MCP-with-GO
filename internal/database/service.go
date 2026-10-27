@@ -29,6 +29,12 @@ type Column struct {
 	Nullable bool   `json:"nullable"`
 }
 
+type TableSchema struct {
+	Schema  string   `json:"schema"`
+	Name    string   `json:"name"`
+	Columns []Column `json:"columns"`
+}
+
 type QueryResult struct {
 	Columns   []string `json:"columns"`
 	Rows      [][]any  `json:"rows"`
@@ -113,6 +119,54 @@ func (s *Service) DescribeTable(ctx context.Context, table string) ([]Column, er
 		return nil, fmt.Errorf("table %q was not found in schema %q", table, s.schema)
 	}
 	return columns, nil
+}
+
+func (s *Service) SchemaSnapshot(ctx context.Context, maxColumns int) ([]TableSchema, bool, error) {
+	if maxColumns < 1 || maxColumns > 5000 {
+		return nil, false, fmt.Errorf("schema column limit must be between 1 and 5000")
+	}
+	ctx, cancel := context.WithTimeout(ctx, s.queryTimeout)
+	defer cancel()
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT table_name, column_name, data_type, is_nullable
+		 FROM information_schema.columns
+		 WHERE table_schema = $1
+		 ORDER BY table_name, ordinal_position
+		 LIMIT $2`, s.schema, maxColumns+1)
+	if err != nil {
+		return nil, false, fmt.Errorf("read database schema snapshot: %w", err)
+	}
+	defer rows.Close()
+	snapshot := make([]TableSchema, 0)
+	tableIndex := make(map[string]int)
+	columnCount := 0
+	truncated := false
+	for rows.Next() {
+		if columnCount == maxColumns {
+			truncated = true
+			break
+		}
+		var tableName, columnName, dataType, nullable string
+		if err := rows.Scan(&tableName, &columnName, &dataType, &nullable); err != nil {
+			return nil, false, fmt.Errorf("read schema snapshot row: %w", err)
+		}
+		index, ok := tableIndex[tableName]
+		if !ok {
+			index = len(snapshot)
+			tableIndex[tableName] = index
+			snapshot = append(snapshot, TableSchema{Schema: s.schema, Name: tableName})
+		}
+		snapshot[index].Columns = append(snapshot[index].Columns, Column{
+			Name:     columnName,
+			Type:     dataType,
+			Nullable: nullable == "YES",
+		})
+		columnCount++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, fmt.Errorf("iterate schema snapshot: %w", err)
+	}
+	return snapshot, truncated, nil
 }
 
 func (s *Service) QueryReadOnly(ctx context.Context, query string) (QueryResult, error) {

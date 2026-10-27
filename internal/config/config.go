@@ -13,16 +13,18 @@ import (
 )
 
 type Config struct {
-	AllowedDirs            []string
-	MaxFileBytes           int64
-	MaxListFiles           int
-	DatabaseURL            string
-	DatabaseSchema         string
-	DatabaseQueryTimeout   time.Duration
-	DatabaseMaxRows        int
-	DatabaseMaxResultBytes int
-	FlowCSVPath            string
-	FlowMaxFileBytes       int64
+	AllowedDirs              []string
+	MaxFileBytes             int64
+	MaxListFiles             int
+	DatabaseURL              string
+	DatabaseSchema           string
+	DatabaseQueryTimeout     time.Duration
+	DatabaseMaxRows          int
+	DatabaseMaxResultBytes   int
+	FlowCSVPath              string
+	FlowMaxFileBytes         int64
+	ContextPackDefaultTokens int
+	ContextPackMaxScanBytes  int64
 }
 
 func Load() (Config, error) {
@@ -60,6 +62,12 @@ func Load() (Config, error) {
 	if cfg.FlowMaxFileBytes, err = int64Env("FLOW_MAX_FILE_BYTES", 10<<20); err != nil {
 		return Config{}, err
 	}
+	if cfg.ContextPackDefaultTokens, err = intEnv("CONTEXT_PACK_DEFAULT_TOKENS", 2000); err != nil {
+		return Config{}, err
+	}
+	if cfg.ContextPackMaxScanBytes, err = int64Env("CONTEXT_PACK_MAX_SCAN_BYTES", 10<<20); err != nil {
+		return Config{}, err
+	}
 	if cfg.DatabaseQueryTimeout, err = durationEnv("DATABASE_QUERY_TIMEOUT", 5*time.Second); err != nil {
 		return Config{}, err
 	}
@@ -70,15 +78,17 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	for name, value := range map[string]int64{
-		"MCP_MAX_FILE_BYTES":  cfg.MaxFileBytes,
-		"FLOW_MAX_FILE_BYTES": cfg.FlowMaxFileBytes,
+		"MCP_MAX_FILE_BYTES":          cfg.MaxFileBytes,
+		"FLOW_MAX_FILE_BYTES":         cfg.FlowMaxFileBytes,
+		"CONTEXT_PACK_MAX_SCAN_BYTES": cfg.ContextPackMaxScanBytes,
 	} {
 		if value <= 0 {
 			return Config{}, fmt.Errorf("%s must be greater than zero", name)
 		}
 	}
-	if cfg.MaxListFiles <= 0 || cfg.DatabaseMaxRows <= 0 || cfg.DatabaseMaxResultBytes <= 0 || cfg.DatabaseQueryTimeout <= 0 {
-		return Config{}, fmt.Errorf("file, database row, result byte, and timeout limits must be greater than zero")
+	if cfg.MaxListFiles <= 0 || cfg.DatabaseMaxRows <= 0 || cfg.DatabaseMaxResultBytes <= 0 ||
+		cfg.DatabaseQueryTimeout <= 0 || cfg.ContextPackDefaultTokens < 100 || cfg.ContextPackDefaultTokens > 8000 {
+		return Config{}, fmt.Errorf("file, database, and context-pack limits must be positive; CONTEXT_PACK_DEFAULT_TOKENS must be between 100 and 8000")
 	}
 
 	cfg.DatabaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
